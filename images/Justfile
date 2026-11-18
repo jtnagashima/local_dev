@@ -1,0 +1,7 @@
+build_terraform_image: 
+    @echo "Building Terraform image with Podman..."
+    podman build \
+        -t localhost/terraform-kind \
+        --build-arg PODMAN_VERSION=$(podman version --format '{{{{.Server.Version}}') \
+        --build-arg TARGETARCH=amd64 \
+        -f Containerfile_Terraform .
