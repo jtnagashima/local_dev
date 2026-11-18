@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Git pre-commit hook: terraform fmt check + security scan on staged Terraform files.
+#
+# Install:  cp pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Skip:     git commit --no-verify
+#
+# Env vars:
+#   TF_HOOK_SKIP_SECURITY=1          skip the security scan
+#   TF_HOOK_SEVERITY=HIGH,CRITICAL   minimum severities that fail the commit
+#   TF_HOOK_SCANNER=trivy|checkov|tfsec   force a scanner (default: first one found)
+
+set -euo pipefail
+
+SEVERITY="${TF_HOOK_SEVERITY:-HIGH,CRITICAL}"
+red()   { printf '\033[31m%s\033[0m\n' "$*"; }
+green() { printf '\033[32m%s\033[0m\n' "$*"; }
+info()  { printf '\033[36m==> %s\033[0m\n' "$*"; }
+
+# Collect staged .tf / .tfvars files (null-delimited to handle spaces).
+files=()
+while IFS= read -r -d '' f; do
+  files+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.tf' '*.tfvars')
+
+if [ ${#files[@]} -eq 0 ]; then
+  exit 0
+fi
+
+status=0
+
+# ---------- terraform fmt ----------
+info "terraform fmt check (${#files[@]} file(s))"
+if ! command -v terraform >/dev/null 2>&1; then
+  red "terraform not found in PATH"
+  exit 1
+fi
+
+unformatted=()
+for f in "${files[@]}"; do
+  # Check the staged version, not the working tree copy.
+  if ! git show ":$f" | terraform fmt -check - >/dev/null 2>&1; then
+    unformatted+=("$f")
+  fi
+done
+
+if [ ${#unformatted[@]} -gt 0 ]; then
+  red "Files need formatting:"
+  printf '  %s\n' "${unformatted[@]}"
+  echo "Fix with: terraform fmt ${unformatted[*]} && git add ${unformatted[*]}"
+  status=1
+else
+  green "fmt OK"
+fi
+
+# ---------- security scan ----------
+if [ "${TF_HOOK_SKIP_SECURITY:-0}" = "1" ]; then
+  info "security scan skipped (TF_HOOK_SKIP_SECURITY=1)"
+  exit $status
+fi
+
+scanner="${TF_HOOK_SCANNER:-}"
+if [ -z "$scanner" ]; then
+  for s in trivy checkov tfsec; do
+    if command -v "$s" >/dev/null 2>&1; then scanner="$s"; break; fi
+  done
+fi
+
+if [ -z "$scanner" ]; then
+  red "No security scanner found. Install trivy, checkov, or tfsec, or set TF_HOOK_SKIP_SECURITY=1."
+  exit 1
+fi
+
+# Unique directories containing staged files.
+dirs=()
+while IFS= read -r d; do
+  dirs+=("$d")
+done < <(for f in "${files[@]}"; do dirname "$f"; done | sort -u)
+
+info "security scan with $scanner (severity: $SEVERITY)"
+for d in "${dirs[@]}"; do
+  echo "  scanning $d"
+  case "$scanner" in
+    trivy)
+      trivy config --quiet --exit-code 1 --severity "$SEVERITY" "$d" || status=1
+      ;;
+    checkov)
+      # checkov severity filtering needs an API key, so fail on any failed check.
+      checkov -d "$d" --framework terraform --quiet --compact || status=1
+      ;;
+    tfsec)
+      min="${SEVERITY%%,*}"
+      tfsec "$d" --minimum-severity "$min" --no-colour || status=1
+      ;;
+    *)
+      red "Unknown scanner: $scanner"; exit 1
+      ;;
+  esac
+done
+
+if [ $status -eq 0 ]; then
+  green "All Terraform checks passed"
+else
+  red "Commit blocked. Fix the issues above or use 'git commit --no-verify' to bypass."
+fi
+exit $status
