@@ -3,7 +3,7 @@ resource "kind_cluster" "this" {
   name            = var.cluster_name
   node_image      = var.node_image
   wait_for_ready  = true
-  kubeconfig_path = pathexpand("~/.kube/config")
+  kubeconfig_path = "/tmp/kubeconfig"
 
   kind_config {
     kind        = "Cluster"

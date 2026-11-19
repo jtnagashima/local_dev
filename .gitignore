@@ -2,7 +2,6 @@
 **/.terraform/*
 **/tf/.terraform.d/
 
-
 # Terraform state files
 *.tfstate
 *.tfstate.*
@@ -39,6 +38,9 @@ tfplan
 *.key
 *.p12
 *.pfx
+
+# Sensitive directories
+.kube/
 
 # Editor / IDE files
 .idea/

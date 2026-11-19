@@ -1,0 +1,4 @@
+export_kubeconfig:
+    @echo "Exporting kubeconfig to .kube/config"
+    terraform output -raw kubeconfig > .kube/config
+    export KUBECONFIG=.kube/config

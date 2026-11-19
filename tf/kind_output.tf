@@ -1,6 +1,11 @@
 output "kubeconfig_path" {
-  value       = ".kube/config"
+  value       = kind_cluster.this.kubeconfig_path
   description = "The path to the generated Kubeconfig file"
+}
+
+output "kubeconfig" {
+  value     = kind_cluster.this.kubeconfig
+  sensitive = true
 }
 
 output "endpoint" {
