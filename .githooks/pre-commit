@@ -35,13 +35,23 @@ if ! command -v terraform >/dev/null 2>&1; then
   exit 1
 fi
 
+# Create a temporary directory to check formatting without modifying the working tree.
+tmpdir="$(mktemp -d "$PWD/.tf-fmt-check.XXXXXX")"
+trap 'rm -rf "$tmpdir"' EXIT
+tmprel="${tmpdir#"$PWD"/}"
+printf '%s\0' "${files[@]}" | git checkout-index -z --stdin --prefix="$tmprel/"
+
 unformatted=()
-for f in "${files[@]}"; do
-  # Check the staged version, not the working tree copy.
-  if ! git show ":$f" | terraform fmt -check - >/dev/null 2>&1; then
-    unformatted+=("$f")
-  fi
-done
+fmt_rc=0
+fmt_out="$(terraform fmt -check -list=true -recursive "$tmprel" </dev/null)" || fmt_rc=$?
+if [ $fmt_rc -ne 0 ] && [ $fmt_rc -ne 3 ]; then
+  red "terraform fmt failed (exit $fmt_rc):"
+  printf '%s\n' "$fmt_out"
+  exit 1
+fi
+while IFS= read -r line; do
+  [ -n "$line" ] && unformatted+=("${line#"$tmprel"/}")
+done <<< "$fmt_out"
 
 if [ ${#unformatted[@]} -gt 0 ]; then
   red "Files need formatting:"
