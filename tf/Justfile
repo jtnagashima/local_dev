@@ -2,3 +2,24 @@ export_kubeconfig:
     @echo "Exporting kubeconfig to .kube/config"
     terraform output -raw kubeconfig > .kube/config
     export KUBECONFIG=.kube/config
+
+kubeconfig := "./kube/config"
+
+# Print env exports in your shell's syntax
+env shell=`basename "$SHELL"`:
+    #!/usr/bin/env bash
+    case "{{shell}}" in
+      bash|zsh) echo "export KUBECONFIG={{kubeconfig}}" ;;
+      fish)     echo "set -gx KUBECONFIG {{kubeconfig}}" ;;
+      *)        echo "Unsupported shell: {{shell}}" >&2; exit 1 ;;
+    esac
+
+# Show the command to load the env into your current shell
+env-help:
+    #!/usr/bin/env bash
+    case "$(basename "$SHELL")" in
+      bash|zsh) echo 'eval "$(just env)"' ;;
+      fish)     echo 'just env | source' ;;
+      *)        echo "Unsupported shell: $SHELL" >&2; exit 1 ;;
+    esac
+   
