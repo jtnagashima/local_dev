@@ -1,12 +1,12 @@
-export_kubeconfig:
+# Exports the kubeconfig to the .kube/config file
+tf_export_kubeconfig:
     @echo "Exporting kubeconfig to .kube/config"
     terraform output -raw kubeconfig > .kube/config
-    export KUBECONFIG=.kube/config
 
 kubeconfig := "./kube/config"
 
 # Print env exports in your shell's syntax
-env shell=`basename "$SHELL"`:
+tf_env shell=`basename "$SHELL"`:
     #!/usr/bin/env bash
     case "{{shell}}" in
       bash|zsh) echo "export KUBECONFIG={{kubeconfig}}" ;;
@@ -15,7 +15,7 @@ env shell=`basename "$SHELL"`:
     esac
 
 # Show the command to load the env into your current shell
-env-help:
+tf_env-help:
     #!/usr/bin/env bash
     case "$(basename "$SHELL")" in
       bash|zsh) echo 'eval "$(just env)"' ;;
