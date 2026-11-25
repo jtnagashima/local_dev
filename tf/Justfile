@@ -1,10 +1,10 @@
 
-kubeconfig := "tf/.kube/config"
+kubeconfig := source_directory() / ".kube/config"
 
 # Exports the kubeconfig to the .kube/config file
 tf_export_kubeconfig:
     @echo "Exporting kubeconfig to {{kubeconfig}}"
-    terraform output -raw kubeconfig > {{kubeconfig}}
+    cd "{{source_directory()}}" && terraform output -raw kubeconfig > "{{kubeconfig}}" </dev/null
 
 # Print env exports in your shell's syntax
 tf_env shell=`basename "$SHELL"`:
