@@ -1,6 +1,5 @@
 # Check for installed dependencies and create a list to install if they are missing
-# default recipe to display help information
-import 'tf/Justfile'
+
 
 # Dependencies needed for this project
 dependencies := "podman"
@@ -14,6 +13,7 @@ local_path := "/usr/local/bin"
 # podman machine name to use for running containers
 machine := "podman-machine-default"
 
+# default recipe to display help information
 default:
   @just --list
 
@@ -90,3 +90,20 @@ setup:
     cd tf && terraform init && terraform apply
     @just tf_export_kubeconfig
     @just tf_env
+
+
+######## Images ########
+
+build_aws_emulator_image: 
+    @echo "Building AWS Emulator image with Podman..."
+    cd aws-emulator/images && podman build \
+        -t localhost/aws-emulator \
+        -f Containerfile .
+
+build_terraform_image: 
+    @echo "Building Terraform image with Podman..."
+    cd tf/images && podman build \
+        -t localhost/terraform-kind \
+        --build-arg PODMAN_VERSION=$(podman version --format '{{{{.Server.Version}}') \
+        --build-arg TARGETARCH=amd64 \
+        -f Containerfile .
