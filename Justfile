@@ -3,7 +3,7 @@
 import 'tf/Justfile'
 
 # Dependencies needed for this project
-dependencies := "git podman"
+dependencies := "podman"
 
 # checks the files in Scripts/ are symlinked from /usr/local/bin
 links := "terraform=podman-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh"
