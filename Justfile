@@ -3,6 +3,7 @@
 import 'tf/Justfile'
 
 dependencies := "git podman"
+local_path := "/usr/local/bin"
 
 default:
   @just --list
@@ -16,15 +17,15 @@ check_and_install_dependencies:
     red=$'\033[31m'
     for dep in {{dependencies}}; do
       if command -v "$dep" >/dev/null 2>&1; then
-        echo "${green}✔${reset} $dep is already installed."
+        echo "{{GREEN}}✔{{NORMAL}} $dep is already installed."
       else
-        echo "${red}✗${reset} $dep is not installed. Adding to install list."
+        echo "{{RED}}✗{{NORMAL}} $dep is not installed. Adding to install list."
         missing+=("$dep")
       fi
     done
     # Request user confirmation before installing missing dependencies
     if [[ -z ${missing[*]+x} ]]; then
-      echo "${green}✔${reset} All dependencies are installed."
+      echo "{{GREEN}}✔{{NORMAL}} All dependencies are installed."
       exit 0
     fi
     read -r -p "Install ${missing[*]} with Homebrew? [y/N] " answer
@@ -33,3 +34,31 @@ check_and_install_dependencies:
     else
       echo "Skipped install."
     fi
+
+# checks the files in Scripts/ are symlinked from /usr/local/bin
+links := "terraform=docker-terraform.sh trivy=trivy.sh"
+
+check_symlinks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    failed=0
+    for pair in {{links}}; do
+      name=${pair%%=*}; script=${pair#*=}
+      link="{{local_path}}/$name"
+      target="{{justfile_directory()}}/Scripts/$script"
+      if [[ -L $link && $(readlink "$link") == "$target" ]]; then
+        echo "{{GREEN}}✔{{NORMAL}} $link -> $target"
+      elif [[ ! -e $link && ! -L $link ]]; then
+        echo "{{GREEN}}Creating{{NORMAL}} $link -> $target"
+        if [[ -w "{{local_path}}" ]]; then
+          ln -s "$target" "$link"
+        else
+          sudo ln -s "$target" "$link"
+        fi
+        echo "{{GREEN}}✔{{NORMAL}} $link -> $target"
+      else
+        echo "{{RED}}✘{{NORMAL}} $link exists but doesn't point to $target, leaving it alone"
+        failed=1
+      fi
+    done
+    exit $failed
