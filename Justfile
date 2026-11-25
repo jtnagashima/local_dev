@@ -6,7 +6,7 @@ import 'tf/Justfile'
 dependencies := "git podman"
 
 # checks the files in Scripts/ are symlinked from /usr/local/bin
-links := "terraform=docker-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh"
+links := "terraform=podman-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh"
 
 # path to the local bin directory where symlinks will be created
 local_path := "/usr/local/bin"
