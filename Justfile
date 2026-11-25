@@ -13,6 +13,10 @@ local_path := "/usr/local/bin"
 # podman machine name to use for running containers
 machine := "podman-machine-default"
 
+# AWS Emulator port to use for running the AWS Emulator container
+aws_emulator_port := "9297"
+aws_emulator_port_range := "9298-9317"
+
 # default recipe to display help information
 default:
   @just --list
@@ -82,6 +86,16 @@ check_podman_machine:
       podman machine start {{machine}}
     fi
 
+setup_aws_emulator:
+    @just build_aws_emulator_image
+    mkdir -p ~/.aws/emulator
+    podman run --rm \
+      --memory=2g \
+      --memory-swap=2g \
+      -p 127.0.0.1:{{aws_emulator_port}}:{{aws_emulator_port}} \
+      -p 127.0.0.1:{{aws_emulator_port_range}}:{{aws_emulator_port_range}} -e EMULATOR_LISTENER_PORT_RANGE={{aws_emulator_port_range}} \
+      -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" \
+    localhost/aws-emulator -p {{aws_emulator_port}}
 
 setup:
     @just check_and_install_dependencies
