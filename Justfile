@@ -2,8 +2,17 @@
 # default recipe to display help information
 import 'tf/Justfile'
 
+# Dependencies needed for this project
 dependencies := "git podman"
+
+# checks the files in Scripts/ are symlinked from /usr/local/bin
+links := "terraform=docker-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh"
+
+# path to the local bin directory where symlinks will be created
 local_path := "/usr/local/bin"
+
+# podman machine name to use for running containers
+machine := "podman-machine-default"
 
 default:
   @just --list
@@ -35,9 +44,6 @@ check_and_install_dependencies:
       echo "Skipped install."
     fi
 
-# checks the files in Scripts/ are symlinked from /usr/local/bin
-links := "terraform=docker-terraform.sh trivy=trivy.sh"
-
 check_symlinks:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -62,3 +68,25 @@ check_symlinks:
       fi
     done
     exit $failed
+
+check_podman_machine:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if podman machine inspect {{machine}} >/dev/null 2>&1; then
+      echo "{{GREEN}}✔{{NORMAL}} {{machine}} is initialized"
+    else
+      echo "{{YELLOW}}{{machine}} not found, initializing...{{NORMAL}}"
+      podman machine init {{machine}}
+    fi
+    if [[ $(podman machine inspect {{machine}} --format '{{{{.State}}') != running ]]; then
+      podman machine start {{machine}}
+    fi
+
+
+setup:
+    @just check_and_install_dependencies
+    @just check_symlinks
+    @just check_podman_machine
+    cd tf && terraform init && terraform apply
+    @just tf_export_kubeconfig
+    @just tf_env
