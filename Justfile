@@ -89,7 +89,7 @@ check_podman_machine:
 setup_aws_emulator:
     @just build_aws_emulator_image
     mkdir -p ~/.aws/emulator
-    podman run --rm \
+    podman run -d --rm \
       --memory=2g \
       --memory-swap=2g \
       -p 127.0.0.1:{{aws_emulator_port}}:{{aws_emulator_port}} \
@@ -101,6 +101,7 @@ setup:
     @just check_and_install_dependencies
     @just check_symlinks
     @just check_podman_machine
+    @just setup_aws_emulator
     cd tf && terraform init && terraform apply
     @just tf_export_kubeconfig
     @just tf_env
