@@ -15,3 +15,7 @@ tf_env shell=`basename "$SHELL"`:
       *)        echo "Unsupported shell: {{shell}}" >&2; exit 1 ;;
     esac
    
+tf_destroy:
+    @echo "Destroying Terraform resources..."
+    cd "{{source_directory()}}" && terraform destroy -auto-approve
+    @echo "Terraform resources destroyed."

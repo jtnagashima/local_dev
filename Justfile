@@ -1,11 +1,11 @@
 # Check for installed dependencies and create a list to install if they are missing
-
+import 'tf/Justfile'
 
 # Dependencies needed for this project
 dependencies := "podman"
 
 # checks the files in Scripts/ are symlinked from /usr/local/bin
-links := "terraform=podman-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh"
+links := "terraform=podman-terraform.sh trivy=trivy.sh kubectl=kubectl.sh kind=kind.sh kustomize=kustomize.sh aws=aws.sh"
 
 # path to the local bin directory where symlinks will be created
 local_path := "/usr/local/bin"
@@ -86,16 +86,35 @@ check_podman_machine:
       podman machine start {{machine}}
     fi
 
-setup_aws_emulator:
-    @just build_aws_emulator_image
-    mkdir -p ~/.aws/emulator
-    podman run -d --rm \
+setup_aws_emulator: 
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$HOME/.aws/emulator"
+    id=$(podman ps --filter "ancestor=localhost/aws-emulator" --format "{{{{.ID}}")
+    if [[ -n $id ]]; then
+      echo "{{GREEN}}✔{{NORMAL}} AWS Emulator is already running with container ID: $id"
+      exit 0
+    fi
+    echo "Starting AWS Emulator container..."
+    podman run -d --rm --name aws-emulator \
       --memory=2g \
       --memory-swap=2g \
       -p 127.0.0.1:{{aws_emulator_port}}:{{aws_emulator_port}} \
-      -p 127.0.0.1:{{aws_emulator_port_range}}:{{aws_emulator_port_range}} -e EMULATOR_LISTENER_PORT_RANGE={{aws_emulator_port_range}} \
+      -p 127.0.0.1:{{aws_emulator_port_range}}:{{aws_emulator_port_range}} \
+      -e EMULATOR_LISTENER_PORT_RANGE={{aws_emulator_port_range}} \
       -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" \
-    localhost/aws-emulator -p {{aws_emulator_port}}
+      localhost/aws-emulator -p {{aws_emulator_port}}
+
+teardown_aws_emulator:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    id=$(podman ps --filter "ancestor=localhost/aws-emulator" --format "{{{{.ID}}")
+    if [[ -n $id ]]; then
+      echo "Stopping AWS Emulator container with ID: $id"
+      podman stop "$id"
+    else
+      echo "{{YELLOW}}No running AWS Emulator container found.{{NORMAL}}"
+    fi
 
 setup:
     @just check_and_install_dependencies
@@ -106,8 +125,12 @@ setup:
     @just tf_export_kubeconfig
     @just tf_env
 
+teardown:
+    @just tf_destroy
+    @just teardown_aws_emulator
 
 ######## Images ########
+build_all_images: build_aws_emulator_image build_terraform_image
 
 build_aws_emulator_image: 
     @echo "Building AWS Emulator image with Podman..."
